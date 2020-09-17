@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<link rel="stylesheet" type="text/css" href="Index.css">
+	</link>
+	<meta charset="UTF-8">
+	<title>Index</title>
+	<script src='http://libs.baidu.com/jquery/1.9.1/jquery.min.js'></script>
+	<script>
+
+		$(
+			function () {
+				$("#btn_new").attr("disabled","disabled");
+				//decidebtn_newstat();
+				load(1);
+				btn_update();
+				btn_delete();
+				btn_newgoose();
+				btn_clear();
+				checkinput();			
+			}
+		);
+		function load(page) {
+			//$('#title').html('封装js选择器调用jquery的html函数在元素后追加信息');
+			if ($("#currentpage").text() == page)
+				return false;
+			$("#goose tbody").empty();
+			$.getJSON('http://localhost:8088/GetList?currentp=' + page, function (data) {
+				var tbl_body = '';
+				var odd_even = false;
+				var i = 0; var j = 0;
+				$.each(data, function (rowkey, rowvalue) {//data为何两层each,第一层剥出json object
+					var tbl_row = '';
+					i = 0;
+					$.each(rowvalue, function (gkey, gvalue) {//先处理好tbl_row//一个list
+						if (i < 4) {
+							if (i == 0)
+								tbl_row += '<td hidden>' + JSON.stringify(gvalue).replace(/\"/g, "") + '</td>';
+							if (i > 0)
+								tbl_row += '<td>' + JSON.stringify(gvalue).replace(/\"/g, "") + '</td>';
+							i++;
+							if (i == 4) {
+								tbl_row += " <td class='choose'>选择</td>"
+							}
+						}
+						if (i > 3) { i++; }
+						if (i > 3 && j == 1) {
+							return false;
+						}
+						else if (i == 7 && j == 0) {
+							j = 1;
+							var Tpage = gvalue.totalP;
+							var li_html = "	<li id='prepage'>上页</li>	";
+							if (Tpage <= 5) {
+								for (var k = 1; k <= Tpage; k++)
+									li_html += "	<li class='jump'>" + k + "</li>	"
+							}
+							else if (Tpage > 5) {
+								for (var k = 1; k <= 5; k++)
+									li_html += "	<li class='jump'>" + k + "</li>	"
+							}
+							li_html += "	<li  id='nextpage'>下页</li>	";
+							li_html += "	<li id='currentpage'>第1页</li>	";
+							li_html += "<li id='li_totalpage'>共1页</li>";
+							$("#ul_pagination").html(li_html);
+							$("#currentpage").text("第" + page + "页");
+							$("#li_totalpage").text("共" + gvalue.totalP + "页");
+							return false;
+						}
+					});
+					tbl_body += "<tr class=\"" + (odd_even ? 'odd' : 'even') + "\">" + tbl_row + '</tr>';
+					odd_even = !odd_even;
+				});
+				$("#goose").append(tbl_body);//#goose tbody  page complete
+				//add click event			
+				$("#goose").off("click").on("click", "td.choose", function () {
+					selectprocess($(this));
+				});
+				$("#ul_pagination").off("click").on("click", "li.jump", function () { //#div_pagination
+					load($(this).text());
+				});
+				$("#ul_pagination").on("click", "#prepage", function () {
+
+					if ($("#currentpage").text().substring(1, 2) > 1)
+						load(($("#currentpage").text().substring(1, 2)) - 1);
+				});
+				$("#ul_pagination").on("click", "#nextpage", function () {
+					if (Number($("#currentpage").text().substring(1, 2)) < Number($("#li_totalpage").text().substring(1, 2)))
+						load(Number($("#currentpage").text().substring(1, 2)) + 1);
+				});
+			})
+		}
+
+		function btn_delete() {
+			$("#btn_delete").click(
+				function () {
+					deleteGooseById();
+				}
+			);
+		}
+		// call by decidebtn_newstat()
+		function btncheck_all_input(neckid_text,eggarea_text,eggnum_text){
+					if((eggnum_text == null || eggnum_text == "")||(eggarea_text == null || eggarea_text == "")||
+					(neckid_text == null || neckid_text == "")){
+						$("#btn_new").attr("disabled","disabled");
+					}
+					if((eggnum_text != null && eggnum_text != "")&&(eggarea_text != null && eggarea_text != "")&&
+					(neckid_text != null && neckid_text != "")){	
+						//alert("hi");
+						$("#btn_new").removeAttr("disabled");
+						$("#message").text("输入数据合法!");
+					}
+		}
+		// call by btn_new onblur
+		function decidebtn_newstat(){
+					var neckidval = $.trim($("#ipt_neckid").val());
+					var neckid_text = neckidval.match("^[0-9|a-z|A-Z]{24}$");
+					var eggareaval = $.trim($("#ipt_eggarea").val());
+					var eggarea_text = eggareaval.match("^[0-9|a-z|A-Z]{1}$");
+					var eggnumval = $.trim($("#ipt_eggnum").val());
+					var eggnum_text = eggnumval.match("^[0-9]{1}$");
+					if (neckid_text == null || neckid_text == "") {
+						$("#message").text("鹅颈号为24位包含字母数字的输入，请检查!");
+						btncheck_all_input(neckid_text,eggarea_text,eggnum_text);
+						return;
+					}
+					
+					if (eggarea_text == null || eggarea_text == "") {
+						$("#message").text("产蛋区为1位包含字母数字的输入，请检查!");
+						btncheck_all_input(neckid_text,eggarea_text,eggnum_text);
+						return;
+					}
+					if (eggnum_text == null || eggnum_text == "") {
+						$("#message").text("产蛋量不能为空，最大为9，请检查!");
+						btncheck_all_input(neckid_text,eggarea_text,eggnum_text);
+					}		
+					btncheck_all_input(neckid_text,eggarea_text,eggnum_text);	
+		}
+
+		//to do 
+		function btn_newgoose() {
+			$("#btn_new").click(
+				function () {
+					$.ajax(
+						{
+							headers:{
+							'Accept': 'application/json',
+							'Content-Type': 'application/json'
+						},
+						type:"post",
+						url:"http://localhost:8088/new",
+						contentType:"application/json;charset=utf-8",
+						data:JSON.stringify(getnewjson()),
+						dataType:"json",
+						success:function(message){
+							if(message!=""&&message!=null)
+								$("#message").text("新数据提交成功");
+								load($("#li_totalpage").text().substring(1, 2));
+						},
+						error:function(message){
+							$("#message").text("更新提交失败，请重试或联系管理员");
+						},
+						}
+					);
+				}
+			);
+		}
+		function checkinput() {
+			$("#ipt_neckid").keyup(
+				function () {
+					decidebtn_newstat();
+				}
+			);
+			$("#ipt_eggarea").keyup(
+				function () {
+					decidebtn_newstat();
+				}
+			);
+			$("#ipt_eggnum").keyup(
+				function () {
+					decidebtn_newstat();
+				}
+			);
+		}
+		function btn_update() {
+			$("#btn_update").click(
+				function () {
+					var id = $.trim($("#ipt_id").val());
+					if (id == "") {
+						$("#message").text("请先选择一条数据才能执行更新操作！");
+						return false;
+					}
+					$.ajax(
+						{
+							headers: {
+								'Accept': 'application/json',
+								'Content-Type': 'application/json'
+							},
+							type: "post",
+							url: "http://localhost:8088/update",
+							contentType: "applicaton/json;chartset=utf-8",
+							data: JSON.stringify(getupdatejson()),
+							dataType: "json",
+							success: function (message) {
+								if (message != "")
+									$("#message").text("更新提交成功");
+							},
+							error: function () {
+								if (message != "")
+									$("#message").text("更新提交失败，请重试或联系管理员");
+								//$("#message").text("更新提交成功");//由于跨域问题，暂时的权宜之计
+								//使用http状态码可以解决跨域问题
+							},
+						}
+					);
+					load($("#currentpage").text().substring(1, 2));
+				}
+			);
+		}
+		function btn_clear(){
+			$("#btn_clear").click(
+				function(){
+					//alert("hi");
+					clearinput();
+				}
+			);
+		}
+		/*
+		td 页面被点击的td
+		*/
+		function clearinput() {
+			$("#ipt_id").val("")
+			$("#ipt_neckid").val("");
+			$("#ipt_eggarea").val("");
+			$("#ipt_eggnum").val("");
+			$("#message").text("清空成功");
+			$("#btn_new").attr("disabled","disabled");
+		}
+		function deleteGooseById() {
+			//$.get("http://localhost:8088/delete?id=" + td.parents("tr").children("td:first").text());
+			//alert($("#ipt_id").val());
+			var id = $.trim($("#ipt_id").val());
+			if (id == "") {
+				$("#message").text("请先选择一条数据才能执行删除操作！");
+				return false;
+			}
+			//to do judge whether success 
+			$.get("http://localhost:8088/delete?id=" + id);
+			var msg = "删除成功，id为" + id;
+			$("#message").text(msg);
+
+			load($("#currentpage").text().substring(1, 2));
+
+		}
+		/*
+		 td 页面被点击的td
+		 */
+		function selectprocess(td) {
+
+			$("#ipt_id").val(td.parents().children().eq(0).text());
+			$("#ipt_neckid").val(td.parents().children().eq(1).text());
+			$("#ipt_eggarea").val(td.parents().children().eq(2).text());
+			$("#ipt_eggnum").val(td.parents().children().eq(3).text());
+			$("#message").text("选择数据成功");
+			decidebtn_newstat();
+		}
+		function getnewjson(){
+			var json={
+				"neckringid":$("#ipt_neckid").val(),
+				"eggarea":$("#ipt_eggarea").val(),
+				"eggamount":$("#ipt_eggnum").val()
+			}
+			return json;
+		}
+
+
+		function getupdatejson() {
+			var json = {
+				"id": $("#ipt_id").val(),
+				"neckringid": $("#ipt_neckid").val(),
+				"eggarea": $("#ipt_eggarea").val(),
+				"eggamount": $("#ipt_eggnum").val(),
+			}
+			return json;
+		}
+		
+	</script>
+
+</head>
+
+<body bgcolor='#FFFFF0'>
+	<div class='normal' id="title">鹅信息显示页</div>
+	<div class='blank'>&nbsp</div>
+
+	<div id="table" class="bottom">
+		<table id="goose">
+			<thead id="thead">
+				<tr>
+					<!--<th>序号 </th>-->
+					<th>颈环号 </th>
+					<th>产蛋区 </th>
+					<th>产蛋数量 </th>
+					<th>操作 </th>
+
+				</tr>
+			</thead>
+		</table>
+	</div>
+	<div id="div_pagination" class="bottom">
+		<ul class="pagination" id="ul_pagination"></ul>
+	</div>
+	<div id="inputline" class="bottom">
+		<input type="text" id="ipt_id" name="序号" class="normal" hidden>
+		颈环号：<input type="text" id="ipt_neckid" name="颈环号" class="big">
+		产蛋区：<input type="text" id="ipt_eggarea" name="产蛋区" class="small">
+		产蛋数量：<input type="text" id="ipt_eggnum" name="产蛋数量" class="small">
+
+		<input type="button" value="更新" id="btn_update">
+		<input type="button" value="删除" id="btn_delete">
+		<input type="button" value="添加" id="btn_new" >
+		<input type="button" value="清空" id="btn_clear">
+	</div>
+	<div id="message" class="bottom">
+		系统信息
+	</div>
+
+</body>
+
+</html>
